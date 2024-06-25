@@ -47,12 +47,18 @@ numMenu: .space 2
 .end_macro
 
 ##Macro de lectura de datos
-.macro leerDatoMenu()
-
+.macro leerDatoMenu(%tipo)
     li $v0 8
     la $a0 numMenu
     li $a1 2
     syscall
+
+    # beq %tipo 1 leerDatoDecimal Branches para cuando hacer otros guardados
+    # beq %tipo 2 leerDatoBinario
+    # beq %tipo 3 leerDatoOctal
+    # beq %tipo 4 leerDatoHexadecimal
+    # beq %tipo 5 leerDatoBinarioEmpaquetado
+
 .end_macro
 
 
