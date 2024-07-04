@@ -26,6 +26,7 @@ mensajeBinarioEmpaquetado: .asciiz "Ingrese el numero binario empaquetado que de
 mensajeResultado: .asciiz "El resultado de la conversion es: "
 
 numMenu: .space 2
+numDecimal: .space 10
 
 
 ##Macros de impresion
@@ -48,16 +49,34 @@ numMenu: .space 2
 
 ##Macro de lectura de datos
 .macro leerDatoMenu(%tipo)
+
+beq %tipo 0 leerDatoMenuInicio
+
+leerDatoMenuInicio:
     li $v0 8
     la $a0 numMenu
     li $a1 2
     syscall
+    b endLeerDato
 
-    # beq %tipo 1 leerDatoDecimal Branches para cuando hacer otros guardados
+   ##Branches para cuando hacer otros guardados
+    beq %tipo 1 leerDatoDecimal 
+    
+
+    leerDatoDecimal:
+        li $v0 8
+        la $a0 numDecimal
+        li $a1 10
+        syscall
+        b endLeerDato
+    
+
     # beq %tipo 2 leerDatoBinario
     # beq %tipo 3 leerDatoOctal
     # beq %tipo 4 leerDatoHexadecimal
     # beq %tipo 5 leerDatoBinarioEmpaquetado
+
+    endLeerDato:
 
 .end_macro
 
@@ -74,30 +93,43 @@ numMenu: .space 2
         subi $t2 $t1 0x30  ##Conversion de caracter a digito
         add $t3 $t3 $t2
         addi $t0 $t0 1
+
+        ##Debug 
+        li $v0 1
+        move $a0 $t3
+        syscall
+
         b bucle
     endBucle:
+        ##Imprimir el resultado
+        
 .end_macro
 
 
 
 .text
+
+
 main:
-    ##Zona de impresion
+    ##Zona de impresion inicial
     imprimirTexto(mensajeInicio)
     imprimirTexto(mensaje)
-    ##Zona de lectura de datos
-    leerDatoMenu()
+    ##Zona de lectura de datos ##
+
+    
+    ##Registro de la opcion del menu
+    li $t3 0 
+    leerDatoMenu($t3)
     ##Conversion de string a digito del menu 
     convertirStringADigito(numMenu)
 
-
-#     ##Logica Condicional de la aplicacion
-    beq $t3 1 decimal
-    beq $t3 2 binario
-    beq $t3 3 octal
-    beq $t3 4 hexadecimal
-    beq $t3 5 binarioEmpaquetado
-    beq $t3 6 end
+    ###Logica Condicional de la aplicacion
+        beq $t3 1 decimal
+        beq $t3 2 binario
+        beq $t3 3 octal
+        beq $t3 4 hexadecimal
+        beq $t3 5 binarioEmpaquetado
+        beq $t3 6 end
     b exceptionNotOption
 
 ##Excepcion de opcion no valida
@@ -107,6 +139,23 @@ exceptionNotOption:
     
 decimal:
     imprimirTexto(mensajeDecimal)
+
+    ##Registro de la opcion del menu##
+    li $t3 1
+    leerDatoMenu($t3)
+
+    ##Conversion de string a digito del menu
+    convertirStringADigito(numDecimal)
+
+    ##Impresion del resultado
+    imprimirTexto(mensajeResultado)
+    
+
+
+
+
+
+
     b end
 
 binario:
