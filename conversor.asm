@@ -34,9 +34,11 @@ mensajeDos: .ascii "¿Hacia que tipo de numero deseas convertir?"
                 .asciiz "\n"
             
 
-mensajeError: "Ha ingresado un valor incorrecto, por favor intente de nuevo ->"
-mensajeDecimal: .asciiz "Ingrese el numero decimal que desea convertir: "
-mensajeBinario: .asciiz "Ingrese el numero binario que desea convertir: "
+mensajeError:   .asciiz "Ha ingresado un valor incorrecto, por favor intente de nuevo ->"
+mensajeDecimal: .asciiz "Ingrese el numero decimal que desea convertir:"
+mensajeBinario: .ascii "Ingrese el numero binario que desea convertir: "
+                .asciiz "Ej. 1010=> "
+
 mensajeOctal: .asciiz "Ingrese el numero octal que desea convertir: "
 mensajeHexadecimal: .asciiz "Ingrese el numero hexadecimal que desea convertir: "
 mensajeBinarioEmpaquetado: .asciiz "Ingrese el numero binario empaquetado que desea convertir: "
@@ -75,6 +77,7 @@ pilaEmpaquetado: .space 7
 li $s0 %tipo
 beq $s0 0 leerDatoMenuInicio
 beq $s0 1 leerDatoDecimal 
+beq $s0 2 leerDatoBinario
 
 leerDatoMenuInicio:
     li $v0 8
@@ -86,16 +89,23 @@ leerDatoMenuInicio:
    ##Branches para cuando hacer otros guardados
 
     leerDatoDecimal:
-        ##Debug de si entra aca
         li $v0 8
         la $a0 numDecimal
         li $a1 12
         syscall
     
     b endLeerDato
-    
 
-    # beq %tipo 2 leerDatoBinario
+    leerDatoBinario:
+    
+        li $v0 8
+        la $a0 numBinario
+        li $a1 33
+        syscall
+
+    b endLeerDato
+
+    
     # beq %tipo 3 leerDatoOctal
     # beq %tipo 4 leerDatoHexadecimal
     # beq %tipo 5 leerDatoBinarioEmpaquetado
@@ -226,7 +236,7 @@ leerDatoMenuInicio:
     endBucleDecimalAOctal:
 .end_macro
 
-
+##Medio hecho, hay que terminar
 .macro decimalAEmpaquetado(%decimal)
     ##Zona de variables y datos
         ##Copia del decimal
@@ -286,16 +296,23 @@ leerDatoMenuInicio:
                 casoFlagNegativo:
                     li $t9 0xD
                     add $t1 $t1 $t9
-                    b finFlags
-                
-                
-
-                finFlags:
-                
+                    b finFlags   
+                finFlags:              
                 ##Imprimir el resultado
+
+.end_macro
+
+##Binario a Decimal
+
+##Agregar la verificacion de la entrada
+
+.macro verificarBinario()
+
 
 
 .end_macro
+
+
 
 
 .text
@@ -329,61 +346,83 @@ exceptionNotOption:
     b main 
     
 decimal:
-            imprimirTexto(mensajeDecimal)
-    ##Registro de la opcion del menu##
-            leerDatoMenu(1)
-        ##Conversion de string a digito el input
-            convertirStringADigito(numDecimal, $t3)
-        ##Seleccion de la conversion
-            imprimirTexto(mensajeDos)
-            leerDatoMenu(0)
-            convertirStringADigito(numMenu, $t8) 
+                imprimirTexto(mensajeDecimal)
+        ##Registro de la opcion del menu##
+                leerDatoMenu(1)
+            ##Conversion de string a digito el input
+                convertirStringADigito(numDecimal, $t3)
+            ##Seleccion de la conversion
+                imprimirTexto(mensajeDos)
+                leerDatoMenu(0)
+                convertirStringADigito(numMenu, $t8) 
 
-        ##Decision de conversion  
-        beq $t8 1 decimalAdecimal
-        beq $t8 2 decimalAbinario
-        beq $t8 3 decimalAOctal
-        beq $t8 4 decimalAHex
-        beq $t8 5 decimalAEmpaquetado
+            ##Decision de conversion  
+            beq $t8 1 decimalAdecimal
+            beq $t8 2 decimalAbinario
+            beq $t8 3 decimalAOctal
+            beq $t8 4 decimalAHex
+            beq $t8 5 decimalAEmpaquetado
 
-decimalAdecimal:
-        imprimirTexto(mensajeResultadoIgual)
-        li $v0 1
-        move $a0 $t3
-        syscall
-    b end
+    decimalAdecimal:
+            imprimirTexto(mensajeResultadoIgual)
+            # li $v0 1
+            # move $a0 $t3
+            # syscall
+        b end
 
 
-decimalAbinario:
-        imprimirTexto(mensajeResultado)
-        convertirDecimalABinario($t3)
-        imprimirTexto(numBinario)
-    b end
-        
+    decimalAbinario:
+            imprimirTexto(mensajeResultado)
+            convertirDecimalABinario($t3)
+            imprimirTexto(numBinario)
+        b end
+            
 
-decimalAHex:
-        imprimirTexto(mensajeResultado)
-        convertirDecimalAHex($t3)
-        imprimirTexto(numHexadecimal)
-    b end
+    decimalAHex:
+            imprimirTexto(mensajeResultado)
+            convertirDecimalAHex($t3)
+            imprimirTexto(numHexadecimal)
+        b end
 
-decimalAOctal:
-        imprimirTexto(mensajeResultado)
-        convertirDecimalAOctal($t3)
-        imprimirTexto(numOctal)
-    b end
+    decimalAOctal:
+            imprimirTexto(mensajeResultado)
+            convertirDecimalAOctal($t3)
+            imprimirTexto(numOctal)
+        b end
 
-decimalAEmpaquetado:
-        imprimirTexto(mensajeResultado)
-        decimalAEmpaquetado($t3)
-        imprimirTexto(pilaEmpaquetado)
-    b end
+    decimalAEmpaquetado:
+            imprimirTexto(mensajeResultado)
+            decimalAEmpaquetado($t3)
+            imprimirTexto(pilaEmpaquetado)
+        b end
 
 
 
 binario:
     imprimirTexto(mensajeBinario)
+    leerDatoMenu(2)
+    ##Debug
+    imprimirTexto(numBinario)
+
     b end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 octal:
     imprimirTexto(mensajeOctal)
     b end
