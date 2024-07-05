@@ -48,6 +48,8 @@ numMenu: .space 1
 numDecimal: .space 10
 numBinario: .space 33
 numHexadecimal: .space 10
+numOctal: .space 10
+pilaEmpaquetado: .space 7
 
 ##Macros de impresion
 .macro imprimirTexto(%texto)
@@ -131,6 +133,7 @@ leerDatoMenuInicio:
         syscall ##Debug quitar en version final
 .end_macro
 
+###Decimal a Todos los sistemas
 .macro convertirDecimalABinario(%decimal)
     ##Zona de variables y datos
         ##Copia del decimal
@@ -189,13 +192,111 @@ leerDatoMenuInicio:
                 ##Aumentamos el contador de digitos
                 addi $t4 $t4 1
                 
-
-
         b bucleDecimalAHex
     endBucleDecimalAHex:
+.end_macro
+
+.macro convertirDecimalAOctal(%decimal)
+    ##Zona de variables y datos
+        ##Copia del decimal
+        move $t0 %decimal
+        li $s0 0X07 ##Mascara para obtener el nibble
+        li $t1 30 ##Contador de shift
+        li $t4 0  ##Contador de digitos
+
+    bucleDecimalAOctal:
+        bltz $t1 endBucleDecimalAOctal
+        srlv $t2 $t0 $t1 ##shifteamos tanto como el contador de shift indique
+        and $t2 $t2 $s0  ##Obtenemos el nibble
+
+        ##Cambio a cadena
+            digitoOctal:
+                addi $t2 $t2 0x30 ##Convertimos el nibble a caracter
+                b finOctal
+        
+            finOctal:
+                ##Guardamos el nibble en el string
+                sb $t2 numOctal($t4)
+                ##Reducimos el contador de shift
+                add $t1 $t1 -3
+                ##Aumentamos el contador de digitos
+                addi $t4 $t4 1
+                
+        b bucleDecimalAOctal
+    endBucleDecimalAOctal:
+.end_macro
+
+
+.macro decimalAEmpaquetado(%decimal)
+    ##Zona de variables y datos
+        ##Copia del decimal
+        move $t0 %decimal
+        bltz $t0 casoNegativo
+        b casoPositivo
+
+         casoPositivo:
+            li $t8 1 ##Flag de positivo
+            b finEvaluacionSigno
+
+         casoNegativo:   
+            li $t8 0 ##Flag de negativo
+            mul $t0 $t0 -1 ##Cambio de signo
+            b finEvaluacionSigno
+
+        finEvaluacionSigno:
+            ##En t1 guardamos los digitos
+
+            li $t2 0 ##Desplazamiento de la pila
+            li $s1 10 ##Base de la conversion
+
+            loopConstruccionPila:
+                beqz $t0 endConstruccionPila
+
+                div $t0 $s1 ##Division para obtener el residuo
+                mfhi $t1 ##Obtenemos el residuo
+                mflo $t0 ##Obtenemos el cociente
+
+                sb $t1 pilaEmpaquetado($t2) ##Guardamos el residuo en la pila
+                addi $t2 $t2 1 ##Aumentamos el desplazamiento
+            
+                b loopConstruccionPila
+            endConstruccionPila:
+                addi $t2 $t2 -1 ##Ajuste de desplazamiento
+                li $t1 0
+                ##Debug de la pila
+                 ##Imprimir pila
+            
+                loopConversionBDP:
+                    bltz $t2 endConversionBDP
+                    lb $t6 pilaEmpaquetado($t2) ##Obtenemos el residuo
+                    sll $t1 $t1 4 ##Multiplicamos el resultado por 10
+                    or $t1 $t6 $t1 
+                    addi $t2 $t2 -1 ##Ajuste de desplazamiento
+                    b loopConversionBDP
+                endConversionBDP:
+                    ##Agregar el signo
+                sll $t1 $t1 1 
+                beqz $t8 casoFlagNegativo
+                b casoFlagPositivo
+
+                casoFlagPositivo:
+                    li $t9 0xC
+                    add $t1 $t1 $t9
+                    b finFlags
+                casoFlagNegativo:
+                    li $t9 0xD
+                    add $t1 $t1 $t9
+                    b finFlags
+                
+                
+
+                finFlags:
+                
+                ##Imprimir el resultado
 
 
 .end_macro
+
 
 .text
 
@@ -218,10 +319,9 @@ main:
                 beq $t3 4 hexadecimal
                 beq $t3 5 binarioEmpaquetado
                 beq $t3 6 end
-
         ##Excepcion de opcion no valida
                 ble $t3 1 exceptionNotOption
-                bgt $t3 6  exceptionNotOption
+                bgt $t3 6 exceptionNotOption
 
 ##Excepcion de opcion no valida
 exceptionNotOption:
@@ -242,7 +342,9 @@ decimal:
         ##Decision de conversion  
         beq $t8 1 decimalAdecimal
         beq $t8 2 decimalAbinario
+        beq $t8 3 decimalAOctal
         beq $t8 4 decimalAHex
+        beq $t8 5 decimalAEmpaquetado
 
 decimalAdecimal:
         imprimirTexto(mensajeResultadoIgual)
@@ -264,9 +366,18 @@ decimalAHex:
         convertirDecimalAHex($t3)
         imprimirTexto(numHexadecimal)
     b end
-b end
 
+decimalAOctal:
+        imprimirTexto(mensajeResultado)
+        convertirDecimalAOctal($t3)
+        imprimirTexto(numOctal)
+    b end
 
+decimalAEmpaquetado:
+        imprimirTexto(mensajeResultado)
+        decimalAEmpaquetado($t3)
+        imprimirTexto(pilaEmpaquetado)
+    b end
 
 
 
