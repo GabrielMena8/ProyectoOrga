@@ -46,6 +46,7 @@ mensajeDebug: .asciiz "Debug de lectura"
 
 numMenu: .space 1
 numDecimal: .space 10
+numBinario: .space 33
 
 ##Macros de impresion
 .macro imprimirTexto(%texto)
@@ -106,7 +107,6 @@ leerDatoMenuInicio:
     li $t0 0 ##Iterador
     li %resultado 0 
     ##Resultado
-
     bucle:
         ##Carga de caracter
         lb $t1 %registro($t0)
@@ -128,11 +128,35 @@ leerDatoMenuInicio:
         li $v0 1
         move $a0 %resultado
         syscall
-
-      
-
 .end_macro
 
+.macro convertirDecimalABinario(%decimal)
+    ##Zona de variables y datos
+        ##Copia del decimal
+        move $t0 %decimal 
+        li $t1 31 ##Contaddor de shift
+        li $t4 0  ##Contador de digitos
+
+    bucleDecimalABinario:
+        bltz $t1 endBucleDecimalABinario
+        srlv $t2 $t0 $t1 ##shifteamos tanto como el contador de shift indique
+        and $t2 $t2 0x1  ##Obtenemos el bit menos significativo
+        addi $t2 $t2 0x30 ##Convertimos el bit a caracter
+        ##Guardamos el bit en el string
+        sb $t2 numBinario($t4)
+        ##Reducimos el contador de shift
+        add $t1 $t1 -1
+        ##Aumentamos el contador de digitos
+        addi $t4 $t4 1
+
+        b bucleDecimalABinario
+
+    endBucleDecimalABinario:
+
+        ##Imprimir el resultado
+       
+
+.end_macro
 
 .text
 
@@ -166,48 +190,43 @@ exceptionNotOption:
     b main 
     
 decimal:
-        imprimirTexto(mensajeDecimal)
+            imprimirTexto(mensajeDecimal)
     ##Registro de la opcion del menu##
+            leerDatoMenu(1)
+        ##Conversion de string a digito el input
+            convertirStringADigito(numDecimal, $t3)
+        ##Seleccion de la conversion
+            imprimirTexto(mensajeDos)
+            leerDatoMenu(0)
+            convertirStringADigito(numMenu, $t8) 
 
-        leerDatoMenu(1)
-        ##Conversion de string a digito del menu
-        convertirStringADigito(numDecimal, $t3)
-        ##Logica de conversion
-
-        imprimirTexto(mensajeDos)
-        leerDatoMenu(0)
-        convertirStringADigito(numMenu, $t8) 
         ##Decision de conversion  
-
-
         beq $t8 1 decimalAdecimal
-
+        beq $t8 2 decimalAbinario
 
 decimalAdecimal:
         imprimirTexto(mensajeResultadoIgual)
-
         li $v0 1
         move $a0 $t3
         syscall
-
-        
-
-#         b end
-
-        ##Decision de conversion
+    b end
 
 
-    ##Decision de conversion
+decimalAbinario:
+        imprimirTexto(mensajeResultado)
+        convertirDecimalABinario($t3)
+        li $v0 4
+        la $a0 numBinario
+        syscall
+
+    b end
         
         
     
+b end
 
 
 
-
-
-
-    b end
 
 
 
