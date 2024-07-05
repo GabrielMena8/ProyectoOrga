@@ -47,6 +47,7 @@ mensajeDebug: .asciiz "Debug de lectura"
 numMenu: .space 1
 numDecimal: .space 10
 numBinario: .space 33
+numHexadecimal: .space 10
 
 ##Macros de impresion
 .macro imprimirTexto(%texto)
@@ -88,7 +89,7 @@ leerDatoMenuInicio:
         la $a0 numDecimal
         li $a1 12
         syscall
-        ##Debug de la lectura
+    
     b endLeerDato
     
 
@@ -126,8 +127,8 @@ leerDatoMenuInicio:
     endBucle:
         ##Imprimir el resultado
         li $v0 1
-        move $a0 %resultado
-        syscall
+        move $a0 %resultado 
+        syscall ##Debug quitar en version final
 .end_macro
 
 .macro convertirDecimalABinario(%decimal)
@@ -152,9 +153,47 @@ leerDatoMenuInicio:
         b bucleDecimalABinario
 
     endBucleDecimalABinario:
-
         ##Imprimir el resultado
-       
+.end_macro
+
+
+.macro convertirDecimalAHex(%decimal)
+    ##Zona de variables y datos
+        ##Copia del decimal
+        move $t0 %decimal
+        li $s0 0X0F ##Mascara para obtener el nibble
+        li $t1 28 ##Contador de shift
+        li $t4 0  ##Contador de digitos
+
+    bucleDecimalAHex:
+        bltz $t1 endBucleDecimalAHex
+        srlv $t2 $t0 $t1 ##shifteamos tanto como el contador de shift indique
+        and $t2 $t2 $s0  ##Obtenemos el nibble
+
+        ##Cambio a cadena
+            bge $t2 0xA letraHexadecimal
+
+            digitoHexadecimal:
+                addi $t2 $t2 0x30 ##Convertimos el nibble a caracter
+                b finHexadecimal
+        
+            letraHexadecimal:
+                addi $t2 $t2 55 ##Convertimos el nibble a caracter
+                b finHexadecimal
+            
+            finHexadecimal:
+                ##Guardamos el nibble en el string
+                sb $t2 numHexadecimal($t4)
+                ##Reducimos el contador de shift
+                add $t1 $t1 -4
+                ##Aumentamos el contador de digitos
+                addi $t4 $t4 1
+                
+
+
+        b bucleDecimalAHex
+    endBucleDecimalAHex:
+
 
 .end_macro
 
@@ -203,6 +242,7 @@ decimal:
         ##Decision de conversion  
         beq $t8 1 decimalAdecimal
         beq $t8 2 decimalAbinario
+        beq $t8 4 decimalAHex
 
 decimalAdecimal:
         imprimirTexto(mensajeResultadoIgual)
@@ -215,33 +255,16 @@ decimalAdecimal:
 decimalAbinario:
         imprimirTexto(mensajeResultado)
         convertirDecimalABinario($t3)
-        li $v0 4
-        la $a0 numBinario
-        syscall
-
+        imprimirTexto(numBinario)
     b end
         
-        
-    
+
+decimalAHex:
+        imprimirTexto(mensajeResultado)
+        convertirDecimalAHex($t3)
+        imprimirTexto(numHexadecimal)
+    b end
 b end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
