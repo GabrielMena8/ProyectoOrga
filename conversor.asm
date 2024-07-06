@@ -47,7 +47,7 @@ mensajeResultadoIgual: .asciiz "El numero es igual en ambos sistemas =>"
 mensajeDebug: .asciiz "Debug de lectura"
 
 numMenu: .space 1
-numDecimal: .space 10
+numDecimal: .space 12
 numBinario: .space 33
 numHexadecimal: .space 10
 numOctal: .space 10
@@ -314,6 +314,94 @@ leerDatoMenuInicio:
 
 
 
+.macro convertirStringADecimalConSigno(%direccion, %resultado)
+    .data
+        temp_word: .word 0
+    .text
+    la $t9, %direccion   # Cargamos la dirección de la etiqueta en $t9
+    li $t0, 0            # Iterador
+    li %resultado, 0     # Resultado
+    li $t3, 0            # Flag para número negativo (0 = positivo, 1 = negativo)
+    
+    # Verificar si el primer carácter es un signo negativo
+    lb $t1, ($t9)
+    bne $t1, 45, bucle   # 45 es el código ASCII para '-'
+    li $t3, 1            # Establecer flag de número negativo
+    addi $t9, $t9, 1     # Mover al siguiente carácter
+
+bucle:
+    # Carga de carácter
+    lb $t1, ($t9)
+    
+    # Fin de cadena
+    beqz $t1, finConversion
+    beq $t1, 0xA, finConversion
+    
+    # Para las decenas/centenas
+    mul %resultado, %resultado, 10 
+    
+    # Conversión de carácter a dígito
+    subi $t2, $t1, 0x30 
+    
+    # Suma del dígito
+    add %resultado, %resultado, $t2
+    
+    # Avanzar al siguiente carácter
+    addi $t9, $t9, 1
+    j bucle
+
+finConversion:
+    # Si el número es negativo, multiplicar el resultado por -1
+    beqz $t3, fin
+    mul %resultado, %resultado, -1
+
+fin:
+    li $v0 1
+     move $a0 %resultado 
+    syscall ##Debug quitar en version final
+.end_macro
+
+
+
+
+
+
+
+.macro binarioADecimal(%binario, %resultado)
+    li %resultado, 0
+    li $t0, 0  # Iterador
+    
+    bucle_binario_decimal:
+        lb $t1, %binario($t0)
+        beqz $t1, fin_binario_decimal
+        beq $t1, 0xA, fin_binario_decimal  # Nueva línea
+        
+        sll %resultado, %resultado, 1
+        andi $t2, $t1, 0x01
+        add %resultado, %resultado, $t2
+        
+        addi $t0, $t0, 1
+        j bucle_binario_decimal
+        
+    fin_binario_decimal:
+.end_macro
+
+.macro binarioAOctal(%binario)
+    binarioADecimal(%binario, $t7)  # Convertimos primero a decimal
+    convertirDecimalAOctal($t7)  # Usamos la función existente
+.end_macro
+
+.macro binarioAHexadecimal(%binario)
+    binarioADecimal(%binario, $t7)  # Convertimos primero a decimal
+    convertirDecimalAHex($t7)  # Usamos la función existente
+.end_macro
+
+.macro binarioAEmpaquetado(%binario)
+    binarioADecimal(%binario, $t7)  # Convertimos primero a decimal
+    decimalAEmpaquetado($t7)  # Usamos la función existente
+.end_macro
+
+
 
 .text
 
@@ -351,6 +439,9 @@ decimal:
                 leerDatoMenu(1)
             ##Conversion de string a digito el input
                 convertirStringADigito(numDecimal, $t3)
+                # Esta funcion no funciona convertirStringADecimalConSigno(numDecimal, $t3)
+                
+
             ##Seleccion de la conversion
                 imprimirTexto(mensajeDos)
                 leerDatoMenu(0)
@@ -401,14 +492,51 @@ decimal:
 binario:
     imprimirTexto(mensajeBinario)
     leerDatoMenu(2)
-    ##Debug
-    imprimirTexto(numBinario)
-
-    b end
-
-
-
-
+    
+    # Menú de conversión para binario
+    imprimirTexto(mensajeDos)
+    leerDatoMenu(0)
+    convertirStringADigito(numMenu, $t8)
+    
+    # Decisión de conversión
+    beq $t8, 1, binarioADecimal_conv
+    beq $t8, 2, binarioABinario
+    beq $t8, 3, binarioAOctal_conv
+    beq $t8, 4, binarioAHex_conv
+    beq $t8, 5, binarioAEmpaquetado_conv
+    
+    binarioADecimal_conv:
+        binarioADecimal(numBinario, $t3)
+        imprimirTexto(mensajeResultado)
+        li $v0, 1
+        move $a0, $t3
+        syscall
+        b end
+        
+    binarioABinario:
+        imprimirTexto(mensajeResultadoIgual)
+        imprimirTexto(numBinario)
+        b end
+        
+    binarioAOctal_conv:
+        binarioAOctal(numBinario)
+        imprimirTexto(mensajeResultado)
+        imprimirTexto(numOctal)
+        b end
+        
+    binarioAHex_conv:
+        binarioAHexadecimal(numBinario)
+        imprimirTexto(mensajeResultado)
+        imprimirTexto(numHexadecimal)
+        b end
+        
+    binarioAEmpaquetado_conv:
+        binarioAEmpaquetado(numBinario)
+        imprimirTexto(mensajeResultado)
+        move $a0, $t1  # Asumiendo que decimalAEmpaquetado guarda el resultado en $t1
+        li $v0, 1
+        syscall
+        b end
 
 
 
