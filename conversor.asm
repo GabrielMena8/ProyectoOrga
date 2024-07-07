@@ -209,17 +209,6 @@ leerDatoMenuInicio:
 
 ###Decimal a Todos los sistemas
 .macro convertirDecimalABinario(%decimal)
-    # Debug: Imprimir el valor decimal recibido
-    li $v0, 4
-    la $a0, debug_msg1
-    syscall
-    li $v0, 1
-    move $a0, %decimal
-    syscall
-    li $v0, 4
-    la $a0, newline
-    syscall
-
     # Copiar el decimal y preparar registros
     move $t0, %decimal
     li $t1, 31  # Contador de bits
@@ -229,17 +218,6 @@ leerDatoMenuInicio:
     bgez $t0, conversion
     # Si es negativo, no necesitamos convertir a complemento a dos
     # ya que el número ya está en esa representación
-    
-    # Debug: Imprimir el valor (que ya está en complemento a dos)
-    li $v0, 4
-    la $a0, debug_msg2
-    syscall
-    li $v0, 1
-    move $a0, $t0
-    syscall
-    li $v0, 4
-    la $a0, newline
-    syscall
 
 conversion:
     # Bucle principal de conversión
@@ -261,17 +239,6 @@ guardar_bit:
     bgez $t1, bucle_conversion  # Continuar si aún hay bits por procesar
 
     sb $zero, numBinario($t4)  # Terminar la cadena con null
-
-    # Debug: Imprimir el resultado binario
-    li $v0, 4
-    la $a0, debug_msg3
-    syscall
-    li $v0, 4
-    la $a0, numBinario
-    syscall
-    li $v0, 4
-    la $a0, newline
-    syscall
 .end_macro
 
 
