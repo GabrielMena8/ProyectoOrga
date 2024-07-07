@@ -259,9 +259,9 @@ guardar_bit_fraccion:
         ##Debug de la conversion
     endBucle:
         ##Imprimir el resultado
-        li $v0 1
-        move $a0 %resultado 
-        syscall ##Debug quitar en version final
+        #li $v0 1
+       # move $a0 %resultado 
+        #syscall ##Debug quitar en version final
 .end_macro
 
 ###Decimal a Todos los sistemas
