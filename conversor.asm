@@ -16,8 +16,10 @@ mensaje:
         .ascii "4. Hexadecimal"
         .ascii "\n"
         .ascii "5. Binario Empaquetado"
+        .ascii "\n"
+        .ascii "6. Decimal con parte fraccionaria a Binario"
         .asciiz "\n"
-
+mensajeDecimalFraccionario: .asciiz "Ingrese el numero decimal con parte fraccionaria (Ejemplo: 2.75): "
 mensajeDos: .ascii "¿Hacia que tipo de numero deseas convertir?"
                 .ascii "\n"
                 .ascii "Elige una opcion"
@@ -32,6 +34,9 @@ mensajeDos: .ascii "¿Hacia que tipo de numero deseas convertir?"
                 .ascii "\n"
                 .ascii "5. Binario Empaquetado"
                 .asciiz "\n"
+                    .asciiz "\n"
+        .ascii "6. Decimal con parte fraccionaria"
+        .asciiz "\n"
             
 
 mensajeError:   .asciiz "Ha ingresado un valor incorrecto, por favor intente de nuevo ->"
@@ -84,6 +89,7 @@ newline: .asciiz "\n"
     beq $s0 2 leerDatoBinario
     beq $s0 3 leerDatoOctal
     beq $s0, 4, leerDatoHexadecimal
+    beq $s0, 5, leerDatoDecimalFraccionario
 
 leerDatoMenuInicio:
     li $v0 8
@@ -124,6 +130,12 @@ leerDatoMenuInicio:
             li $a1, 13 
             syscall
             b endLeerDato
+
+
+    leerDatoDecimalFraccionario:
+    li $v0, 6  # Syscall para leer float
+    syscall
+    b endLeerDato
 
     endLeerDato:
 
@@ -176,6 +188,50 @@ leerDatoMenuInicio:
         li %resultado, 0  # Establecer resultado a 0 en caso de error
     
     fin:
+.end_macro
+
+.macro convertirDecimalFraccionarioABinario(%decimal, %fraccion)
+    # Convertir la parte entera
+    move $t0, %decimal
+    li $t1, 31  # Contador de bits para la parte entera
+    li $t4, 0   # Contador para la posición en la cadena de salida
+    
+    # Bucle para la parte entera
+bucle_entera:
+    andi $t2, $t0, 0x80000000  # Obtener el bit más significativo
+    srl $t2, $t2, 31  # Desplazar a la posición menos significativa
+    addi $t2, $t2, 48  # Convertir a carácter ASCII
+    sb $t2, numBinario($t4)  # Almacenar en la cadena de salida
+    addi $t4, $t4, 1    # Avanzar en la cadena de salida
+    sll $t0, $t0, 1     # Desplazar el número a la izquierda
+    addi $t1, $t1, -1   # Decrementar el contador de bits
+    bgez $t1, bucle_entera  # Continuar si aún hay bits por procesar
+
+    # Agregar el punto decimal
+    li $t2, 46  # ASCII para '.'
+    sb $t2, numBinario($t4)
+    addi $t4, $t4, 1
+
+    # Convertir la parte fraccionaria
+    move $t0, %fraccion
+    li $t1, 8  # 8 bits para la parte fraccionaria
+    li $t3, 0x800000  # Máscara inicial (2^23)
+
+bucle_fraccion:
+    sll $t0, $t0, 1     # Desplazar la fracción a la izquierda
+    and $t2, $t0, $t3  # Verificar si el bit actual está encendido
+    beqz $t2, bit_cero_fraccion
+    li $t2, 49  # ASCII '1'
+    j guardar_bit_fraccion
+bit_cero_fraccion:
+    li $t2, 48  # ASCII '0'
+guardar_bit_fraccion:
+    sb $t2, numBinario($t4)  # Almacenar en la cadena de salida
+    addi $t4, $t4, 1    # Avanzar en la cadena de salida
+    addi $t1, $t1, -1   # Decrementar el contador de bits
+    bnez $t1, bucle_fraccion  # Continuar si aún hay bits por procesar
+
+    sb $zero, numBinario($t4)  # Terminar la cadena con null
 .end_macro
 
 
@@ -693,10 +749,12 @@ main:
                 beq $t3 3 octal
                 beq $t3 4 hexadecimal
                 beq $t3 5 binarioEmpaquetado
-                beq $t3 6 end
+                beq $t3, 6, decimalFraccionario
+                beq $t3, 7, end
         ##Excepcion de opcion no valida
                 ble $t3 1 exceptionNotOption
-                bgt $t3 6 exceptionNotOption
+                bgt $t3, 7, exceptionNotOption
+                
 
 ##Excepcion de opcion no valida
 exceptionNotOption:
@@ -829,7 +887,7 @@ binario:
 
 
 
-
+    
 
 
 
@@ -963,6 +1021,40 @@ hexadecimal:
     binarioEmpaquetado:
         imprimirTexto(mensajeBinarioEmpaquetado)
         b end
+
+
+    
+  decimalFraccionario:
+    imprimirTexto(mensajeDecimalFraccionario)
+    leerDatoMenu(5)  # Usar la nueva opción para leer float
+    
+    # $f0 contiene el float leído
+    # Convertir la parte entera a entero
+    cvt.w.s $f1, $f0
+    mfc1 $t7, $f1  # $t7 contiene la parte entera
+
+    # Calcular la parte fraccionaria
+    cvt.s.w $f1, $f1
+    sub.s $f2, $f0, $f1  # $f2 contiene la parte fraccionaria
+
+    # Convertir la parte fraccionaria a un entero (multiplicando por 2^24)
+    lui $t0, 0x4b00  # Carga la parte alta de 2^24 (16777216.0) en formato IEEE 754
+    ori $t0, $t0, 0x0000  # Completa la parte baja (que es 0 en este caso)
+    mtc1 $t0, $f3  # Mueve el valor a un registro de punto flotante
+    mul.s $f2, $f2, $f3
+    cvt.w.s $f2, $f2
+    mfc1 $t8, $f2  # $t8 contiene la parte fraccionaria como un entero
+
+    # Convertir a binario
+    convertirDecimalFraccionarioABinario($t7, $t8)
+
+    # Imprimir el resultado
+    imprimirTexto(mensajeResultado)
+    imprimirTexto(numBinario)
+    imprimirTexto(salto)
+
+    b end
+
     end:
         end
 
