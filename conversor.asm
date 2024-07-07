@@ -57,11 +57,12 @@ numDecimal: .space 12
 numBinario: .space 33
 numHexadecimal: .space 10
 numOctal: .space 10
-pilaEmpaquetado: .space 7
 debug_msg1: .asciiz "Valor decimal recibido: "
 debug_msg2: .asciiz "Valor después de complemento a dos: "
 debug_msg3: .asciiz "Resultado binario: "
 newline: .asciiz "\n"
+
+pilaEmpaquetado: .space 16  
 ##Macros de impresion
 .macro imprimirTexto(%texto)
     li $v0 4
@@ -395,56 +396,59 @@ fin_conversion:
 
 #Convertir empaquetado
 .macro decimalAEmpaquetado(%decimal)
-    move $t0, %decimal    # Cargar el número decimal
-    li $t1, 0             # Inicializar el registro para almacenar el resultado empaquetado
-    li $t2, 0             # Contador de dígitos
-    li $t3, 10            # Valor para división
+    # Copiar el decimal a $t0
+    move $t0, %decimal
     
-    # Manejar el signo
-    bgez $t0, numeroPositivo
-    li $t4, 0xD           # Nibble de signo negativo (1101 en hexadecimal)
-    neg $t0, $t0          # Hacer positivo para procesar
+    # Determinar el signo
+    bgez $t0, positivo
+    li $t8, 0  # Flag para negativo
+    neg $t0, $t0  # Hacer positivo el número
     j procesarDigitos
-    
-numeroPositivo:
-    li $t4, 0xC           # Nibble de signo positivo (1100 en hexadecimal)
+positivo:
+    li $t8, 1  # Flag para positivo
 
 procesarDigitos:
-    beqz $t0, finProcesamiento
-    div $t0, $t3
-    mfhi $t5              # Obtener el dígito actual (resto)
-    mflo $t0              # Actualizar el número para la siguiente iteración (cociente)
-    
-    # Empaquetar el dígito
-    sll $t1, $t1, 4       # Desplazar a la izquierda para dejar espacio para el siguiente dígito
-    or $t1, $t1, $t5      # Añadir el dígito al resultado empaquetado
-    
-    addi $t2, $t2, 1      # Incrementar el contador de dígitos
-    j procesarDigitos
+    li $t2, 0  # Índice para la pila
+    li $s1, 10  # Constante 10 para división
 
-finProcesamiento:
-    # Añadir ceros a la izquierda si es necesario
-    li $t6, 7             # Queremos 7 dígitos en total (el octavo será el signo)
-    sub $t6, $t6, $t2
-    ble $t6, $zero, agregarSigno
-    
-rellenarCeros:
-    sll $t1, $t1, 4       # Añadir un cero a la izquierda
-    addi $t6, $t6, -1
-    bgtz $t6, rellenarCeros
+loopConstruccionPila:
+    beqz $t0, finLoopConstruccionPila
+    div $t0, $s1
+    mflo $t0  # Cociente
+    mfhi $t1  # Resto (dígito)
+    sb $t1, pilaEmpaquetado($t2)
+    addi $t2, $t2, 1
+    j loopConstruccionPila
 
-agregarSigno:
-    # Añadir el nibble de signo
+finLoopConstruccionPila:
+    addi $t2, $t2, -1  # Ajustar índice
+    li $t1, 0  # Resultado empaquetado
+
+loopConversionBPD:
+    bltz $t2, finLoopConversionBPD
+    lb $t3, pilaEmpaquetado($t2)
     sll $t1, $t1, 4
-    or $t1, $t1, $t4
-    
+    or $t1, $t1, $t3
+    addi $t2, $t2, -1
+    j loopConversionBPD
+
+finLoopConversionBPD:
+    # Añadir el signo
+    sll $t1, $t1, 4
+    beqz $t8, signoNegativo
+    ori $t1, $t1, 0xC  # Positivo
+    j finProceso
+signoNegativo:
+    ori $t1, $t1, 0xD  # Negativo
+
+finProceso:
     # Imprimir el resultado en binario
-    li $t7, 32            # Contador para 32 bits
+    li $t7, 32  # Contador para 32 bits
 
 imprimirBinario:
-    li $t6, 4             # Contador para cada nibble (4 bits)
+    li $t6, 4  # Contador para cada nibble (4 bits)
 imprimirNibble:
-    andi $t5, $t1, 0x80000000  # Obtener el bit más significativo
+    andi $t5, $t1, 0x80000000
     beqz $t5, imprimirCero
     li $v0, 11
     li $a0, '1'
@@ -455,13 +459,13 @@ imprimirCero:
     li $a0, '0'
     syscall
 siguienteBit:
-    sll $t1, $t1, 1       # Desplazar a la izquierda para el siguiente bit
+    sll $t1, $t1, 1
     addi $t6, $t6, -1
     bnez $t6, imprimirNibble
     
     # Imprimir espacio entre nibbles
     li $v0, 11
-    li $a0, ' '           # Espacio en ASCII
+    li $a0, ' '
     syscall
     
     addi $t7, $t7, -4
@@ -823,12 +827,11 @@ fin_imprimir_binario:
         imprimirTexto(numOctal)
         b end
 
- decimalAEmpaquetado:
+decimalAEmpaquetado:
     imprimirTexto(mensajeResultado)
     decimalAEmpaquetado($t7)  # Pasar el número decimal a la macro
     imprimirTexto(salto)
     b end
-
 
 
 
