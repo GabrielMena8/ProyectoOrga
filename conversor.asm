@@ -7,7 +7,7 @@ mensaje:
         .ascii "\n"
         .ascii "Elige una opcion"
         .ascii "\n"
-        .ascii "1. Decimal"
+        .ascii "1. Base 10"
         .ascii "\n"
         .ascii "2. Binario"
         .ascii "\n"
@@ -41,7 +41,7 @@ mensajeBinario: .ascii "Ingrese el numero binario que desea convertir (Ejemplo: 
 
 mensajeOctal: .ascii "Ingrese el numero octal que desea convertir: "
               .asciiz "Ej. 743=> "
-mensajeHexadecimal: .asciiz "Ingrese el numero hexadecimal que desea convertir( Ejemplo : ) "
+mensajeHexadecimal: .asciiz "Ingrese el numero hexadecimal que desea convertir( Ejemplo : +A5, -FF ) "
 mensajeBinarioEmpaquetado: .asciiz "Ingrese el numero binario empaquetado que desea convertir: "
 mensajeResultado: .asciiz "El resultado de la conversion es: "
 mensajeResultadoIgual: .asciiz "El numero es igual en ambos sistemas =>"
@@ -53,7 +53,10 @@ numBinario: .space 33
 numHexadecimal: .space 10
 numOctal: .space 10
 pilaEmpaquetado: .space 7
-
+debug_msg1: .asciiz "Valor decimal recibido: "
+debug_msg2: .asciiz "Valor después de complemento a dos: "
+debug_msg3: .asciiz "Resultado binario: "
+newline: .asciiz "\n"
 ##Macros de impresion
 .macro imprimirTexto(%texto)
     li $v0 4
@@ -206,64 +209,69 @@ leerDatoMenuInicio:
 
 ###Decimal a Todos los sistemas
 .macro convertirDecimalABinario(%decimal)
+    # Debug: Imprimir el valor decimal recibido
+    li $v0, 4
+    la $a0, debug_msg1
+    syscall
+    li $v0, 1
+    move $a0, %decimal
+    syscall
+    li $v0, 4
+    la $a0, newline
+    syscall
+
     # Copiar el decimal y preparar registros
     move $t0, %decimal
-    li $t1, 31  # Contador de bits (empezamos desde el bit más significativo)
+    li $t1, 31  # Contador de bits
     li $t4, 0   # Contador para la posición en la cadena de salida
-    li $t5, 0   # Flag para indicar si hemos encontrado el primer bit significativo
-    li $t6, 0   # Contador de bits significativos
     
-    # Manejar el caso especial de cero
-    bnez $t0, no_es_cero
-    li $t2, '0'
-    sb $t2, numBinario($t4)
-    addi $t4, $t4, 1
-    j fin_conversion
+    # Verificar si el número es negativo
+    bgez $t0, conversion
+    # Si es negativo, no necesitamos convertir a complemento a dos
+    # ya que el número ya está en esa representación
+    
+    # Debug: Imprimir el valor (que ya está en complemento a dos)
+    li $v0, 4
+    la $a0, debug_msg2
+    syscall
+    li $v0, 1
+    move $a0, $t0
+    syscall
+    li $v0, 4
+    la $a0, newline
+    syscall
 
-no_es_cero:
-    # Si el número es negativo, convertirlo a complemento a dos
-    bgez $t0, es_positivo
-    not $t0, $t0  # Invertir bits
-    addi $t0, $t0, 1  # Sumar 1
-    li $t5, 1  # Activar flag para números negativos
-
-es_positivo:
+conversion:
     # Bucle principal de conversión
-    bucle_conversion:
-        srlv $t2, $t0, $t1  # Desplazar a la derecha
-        andi $t2, $t2, 1    # Obtener el bit menos significativo
-        
-        # Si es un número negativo o ya hemos encontrado bits significativos, siempre guardar
-        bnez $t5, guardar_bit
-        bnez $t2, guardar_bit
-        j siguiente_bit
-        
-    guardar_bit:
-        li $t5, 1  # Marcar que hemos encontrado bits significativos
-        addi $t2, $t2, '0'  # Convertir a carácter ASCII
-        sb $t2, numBinario($t4)  # Almacenar en la cadena de salida
-        addi $t4, $t4, 1    # Avanzar en la cadena de salida
-        addi $t6, $t6, 1    # Incrementar contador de bits significativos
+    li $t5, 0x80000000  # Máscara para obtener el bit más significativo
+    
+bucle_conversion:
+    and $t2, $t0, $t5  # Obtener el bit actual
+    beqz $t2, bit_cero
+    li $t2, 49  # ASCII '1'
+    j guardar_bit
+bit_cero:
+    li $t2, 48  # ASCII '0'
+guardar_bit:
+    sb $t2, numBinario($t4)  # Almacenar en la cadena de salida
+    addi $t4, $t4, 1    # Avanzar en la cadena de salida
+    
+    srl $t5, $t5, 1     # Desplazar la máscara a la derecha
+    addi $t1, $t1, -1   # Decrementar el contador de bits
+    bgez $t1, bucle_conversion  # Continuar si aún hay bits por procesar
 
-    siguiente_bit:
-        addi $t1, $t1, -1   # Decrementar el contador de bits
-        bgez $t1, bucle_conversion  # Continuar si aún hay bits por procesar
-
-    # Si el número es negativo y no hemos guardado ningún bit, guardar al menos un '1'
-    bltz %decimal, agregar_bit_signo
-    j fin_conversion
-
-agregar_bit_signo:
-    beqz $t6, insertar_bit_signo  # Si no hay bits significativos, insertar '1'
-    j fin_conversion
-
-insertar_bit_signo:
-    li $t2, '1'
-    sb $t2, numBinario($t4)
-    addi $t4, $t4, 1
-
-fin_conversion:
     sb $zero, numBinario($t4)  # Terminar la cadena con null
+
+    # Debug: Imprimir el resultado binario
+    li $v0, 4
+    la $a0, debug_msg3
+    syscall
+    li $v0, 4
+    la $a0, numBinario
+    syscall
+    li $v0, 4
+    la $a0, newline
+    syscall
 .end_macro
 
 
